@@ -26,18 +26,42 @@ pipeline {
 
         stage('Deploy') {
             steps {
-                echo 'Deploy stage started'
+                echo 'Taking backup of old website'
+                sh 'sudo cp /var/www/html/index.html /var/www/html/index-backup.html || true'
+
+                echo 'Deploying new website'
                 sh 'sudo cp index.html /var/www/html/index.html'
                 sh 'sudo systemctl restart nginx'
             }
         }
 
-        stage('Monitor') {
+        stage('Post Deploy Scan') {
             steps {
-                echo 'Monitor stage started'
-                sh 'chmod +x monitor.sh'
-                sh './monitor.sh'
+                echo 'Post deploy scan stage started'
+                sh 'chmod +x post-deploy-scan.sh'
+                sh './post-deploy-scan.sh'
             }
+        }
+
+        stage('Health Check') {
+            steps {
+                echo 'Health check stage started'
+                sh 'chmod +x health-check.sh'
+                sh './health-check.sh'
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Advanced pipeline success: Website deployed successfully'
+        }
+
+        failure {
+            echo 'Pipeline failed: Rollback started'
+            sh 'sudo cp /var/www/html/index-backup.html /var/www/html/index.html || true'
+            sh 'sudo systemctl restart nginx'
+            echo 'Rollback completed: Old website restored'
         }
     }
 }
